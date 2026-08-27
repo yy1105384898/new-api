@@ -51,7 +51,10 @@ import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
 import { useMediaQuery } from '@/hooks'
 
 import { safeJsonParse } from '../utils/json-parser'
-import type { PricingMode } from './model-pricing-core'
+import {
+  toBackendBillingMode,
+  resolvePricingModeFromData,
+} from './model-pricing-core'
 import {
   ModelPricingEditorPanel,
   type ModelPricingEditorPanelHandle,
@@ -281,6 +284,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
         (acc, model) => {
           const mode =
             model.billingMode === 'per-request' ||
+            model.billingMode === 'per-second' ||
             model.billingMode === 'tiered_expr'
               ? model.billingMode
               : 'per-token'
@@ -290,8 +294,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
         {
           'per-token': 0,
           'per-request': 0,
+          'per-second': 0,
           tiered_expr: 0,
-        } as Record<'per-token' | 'per-request' | 'tiered_expr', number>
+        } as Record<
+          'per-token' | 'per-request' | 'per-second' | 'tiered_expr',
+          number
+        >
       ),
     [models]
   )
@@ -299,12 +307,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
   const handleEdit = useCallback(
     (model: ModelRow) => {
       const editableModel = model.draft ?? model.saved ?? model
-      let editBillingMode: PricingMode = 'per-token'
-      if (editableModel.billingMode === 'tiered_expr') {
-        editBillingMode = 'tiered_expr'
-      } else if (editableModel.price && editableModel.price !== '') {
-        editBillingMode = 'per-request'
-      }
       setEditData({
         name: editableModel.name,
         price: editableModel.price,
@@ -315,7 +317,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
         imageRatio: editableModel.imageRatio,
         audioRatio: editableModel.audioRatio,
         audioCompletionRatio: editableModel.audioCompletionRatio,
-        billingMode: editBillingMode,
+        billingMode: resolvePricingModeFromData(editableModel),
         billingExpr: editableModel.billingExpr,
         requestRuleExpr: editableModel.requestRuleExpr,
         requestUnit: editableModel.requestUnit || 'request',
@@ -547,10 +549,11 @@ const ModelRatioVisualEditorComponent = forwardRef<
       const setIfPresent = (
         target: Record<string, number>,
         name: string,
-        value: string | undefined
+        value: string | number | undefined
       ) => {
-        if (!value || value === '') return
-        const parsed = Number.parseFloat(value)
+        if (value === undefined || value === null || value === '') return
+        const parsed =
+          typeof value === 'number' ? value : Number.parseFloat(String(value))
         if (Number.isFinite(parsed)) target[name] = parsed
       }
 
@@ -588,14 +591,17 @@ const ModelRatioVisualEditorComponent = forwardRef<
           setIfPresent(imageMap, name, data.imageRatio)
           setIfPresent(audioMap, name, data.audioRatio)
           setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
-        } else if (data.price && data.price !== '') {
+        } else if (data.billingMode === 'per-second') {
           setIfPresent(priceMap, name, data.price)
-          if (
-            data.billingMode === 'per-request' &&
-            data.requestUnit !== 'request'
-          ) {
+          billingModeMap[name] = toBackendBillingMode('per-second')
+        } else if (data.billingMode === 'per-request') {
+          setIfPresent(priceMap, name, data.price)
+          billingModeMap[name] = toBackendBillingMode('per-request')
+          if (data.requestUnit && data.requestUnit !== 'request') {
             requestUnitMap[name] = data.requestUnit || 'request'
           }
+        } else if (data.price && data.price !== '') {
+          setIfPresent(priceMap, name, data.price)
         } else {
           setIfPresent(ratioMap, name, data.ratio)
           setIfPresent(cacheMap, name, data.cacheRatio)

@@ -76,6 +76,7 @@ import {
   buildPreviewRows,
   createInitialLaneState,
   createModelPricingSchema,
+  formatOptionalNumericField,
   formatRequestUnitLabel,
   hasValue,
   laneConfigs,
@@ -191,14 +192,16 @@ export const ModelPricingEditorPanel = forwardRef<
     if (editData) {
       form.reset({
         name: editData.name,
-        price: editData.price || '',
-        ratio: editData.ratio || '',
-        cacheRatio: editData.cacheRatio || '',
-        createCacheRatio: editData.createCacheRatio || '',
-        completionRatio: editData.completionRatio || '',
-        imageRatio: editData.imageRatio || '',
-        audioRatio: editData.audioRatio || '',
-        audioCompletionRatio: editData.audioCompletionRatio || '',
+        price: formatOptionalNumericField(editData.price),
+        ratio: formatOptionalNumericField(editData.ratio),
+        cacheRatio: formatOptionalNumericField(editData.cacheRatio),
+        createCacheRatio: formatOptionalNumericField(editData.createCacheRatio),
+        completionRatio: formatOptionalNumericField(editData.completionRatio),
+        imageRatio: formatOptionalNumericField(editData.imageRatio),
+        audioRatio: formatOptionalNumericField(editData.audioRatio),
+        audioCompletionRatio: formatOptionalNumericField(
+          editData.audioCompletionRatio
+        ),
       })
       setPricingMode(resolvePricingModeFromData(editData))
       setBillingExpr(editData.billingExpr || '')
@@ -346,6 +349,9 @@ export const ModelPricingEditorPanel = forwardRef<
     if (nextMode === 'tiered_expr' && !billingExpr) {
       setBillingExpr('tier("base", p * 0 + c * 0)')
     }
+    if (nextMode === 'per-request' && !requestUnit) {
+      setRequestUnit('request')
+    }
   }
 
   const watchedValues = form.watch()
@@ -453,21 +459,22 @@ export const ModelPricingEditorPanel = forwardRef<
       const data: ModelRatioData = {
         name: values.name.trim(),
         billingMode: pricingMode,
-        price: values.price || '',
-        ratio: values.ratio || '',
-        cacheRatio: values.cacheRatio || '',
-        createCacheRatio: values.createCacheRatio || '',
-        completionRatio: values.completionRatio || '',
-        imageRatio: values.imageRatio || '',
-        audioRatio: values.audioRatio || '',
-        audioCompletionRatio: values.audioCompletionRatio || '',
+        price: formatOptionalNumericField(values.price),
+        ratio: formatOptionalNumericField(values.ratio),
+        cacheRatio: formatOptionalNumericField(values.cacheRatio),
+        createCacheRatio: formatOptionalNumericField(values.createCacheRatio),
+        completionRatio: formatOptionalNumericField(values.completionRatio),
+        imageRatio: formatOptionalNumericField(values.imageRatio),
+        audioRatio: formatOptionalNumericField(values.audioRatio),
+        audioCompletionRatio: formatOptionalNumericField(
+          values.audioCompletionRatio
+        ),
+        requestUnit: pricingMode === 'per-request' ? requestUnit : undefined,
       }
 
       if (pricingMode === 'tiered_expr') {
         data.billingExpr = billingExpr
         data.requestRuleExpr = requestRuleExpr
-      } else if (pricingMode === 'per-request') {
-        data.requestUnit = requestUnit
       }
 
       return data
@@ -556,12 +563,15 @@ export const ModelPricingEditorPanel = forwardRef<
                   onValueChange={handleModeChange}
                   className='gap-4'
                 >
-                  <TabsList className='grid w-full grid-cols-3'>
+                  <TabsList className='grid w-full grid-cols-4'>
                     <TabsTrigger value='per-token'>
                       {t('Per-token')}
                     </TabsTrigger>
                     <TabsTrigger value='per-request'>
                       {t('Per-request')}
+                    </TabsTrigger>
+                    <TabsTrigger value='per-second'>
+                      {t('Per-second')}
                     </TabsTrigger>
                     <TabsTrigger value='tiered_expr'>
                       {t('Expression')}
@@ -675,6 +685,47 @@ export const ModelPricingEditorPanel = forwardRef<
                           {t('Choose the unit shown for this fixed price.')}
                         </FieldDescription>
                       </Field>
+                    </FieldGroup>
+                  </TabsContent>
+
+                  <TabsContent value='per-second' className='pt-0'>
+                    <FieldGroup className='gap-5'>
+                      <FormField
+                        control={form.control}
+                        name='price'
+                        render={({ field }) => (
+                          <FormItem className='contents'>
+                            <Field>
+                              <FieldLabel>{t('Unit price')}</FieldLabel>
+                              <FormControl>
+                                <InputGroup>
+                                  <InputGroupAddon>$</InputGroupAddon>
+                                  <InputGroupInput
+                                    inputMode='decimal'
+                                    placeholder='0.01'
+                                    {...field}
+                                    onChange={(event) => {
+                                      const value = event.target.value
+                                      if (numericDraftRegex.test(value)) {
+                                        field.onChange(value)
+                                      }
+                                    }}
+                                  />
+                                  <InputGroupAddon align='inline-end'>
+                                    {t('per second')}
+                                  </InputGroupAddon>
+                                </InputGroup>
+                              </FormControl>
+                              <FieldDescription>
+                                {t(
+                                  'Total charge = unit price × upstream seconds (for example usage.seconds). Other multipliers such as resolution still apply.'
+                                )}
+                              </FieldDescription>
+                              <FormMessage />
+                            </Field>
+                          </FormItem>
+                        )}
+                      />
                     </FieldGroup>
                   </TabsContent>
 
