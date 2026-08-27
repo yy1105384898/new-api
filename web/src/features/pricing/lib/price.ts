@@ -22,6 +22,19 @@ import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { getConfiguredGroupRatio, getDisplayGroupRatio } from './model-helpers'
 
+const REQUEST_UNIT_LABEL_KEYS: Record<string, string> = {
+  request: 'billingUnit.request',
+  call: 'billingUnit.call',
+  image: 'billingUnit.image',
+  task: 'billingUnit.task',
+  generation: 'billingUnit.generation',
+}
+
+export function getRequestUnitLabelKey(unit?: string): string {
+  const normalized = unit?.trim() || 'request'
+  return REQUEST_UNIT_LABEL_KEYS[normalized] ?? REQUEST_UNIT_LABEL_KEYS.request
+}
+
 // ----------------------------------------------------------------------------
 // Price Calculation Utilities
 // ----------------------------------------------------------------------------
