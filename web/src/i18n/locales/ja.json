@@ -3836,6 +3836,12 @@
     "Replica count": "レプリカ数",
     "Replicate": "Replicate",
     "Report an issue": "問題を報告",
+    "billingUnit.request": "リクエスト",
+    "billingUnit.call": "呼び出し",
+    "billingUnit.image": "画像",
+    "billingUnit.task": "タスク",
+    "billingUnit.generation": "生成",
+    "billingUnit.second": "秒",
     "request": "リクエスト",
     "Request": "リクエスト",
     "Request Body Disk Cache": "リクエストボディのディスクキャッシュ",
@@ -5316,6 +5322,11 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Billing unit": "課金単位",
+    "Select unit": "単位を選択",
+    "Choose the unit shown for this fixed price.": "この固定価格に表示する単位を選択してください。",
+    "Cost in USD per billing unit, regardless of tokens used.": "トークン数に関係なく、課金単位あたりの米ドル費用です。",
+    "Fixed price per {{unit}}": "{{unit}}あたりの固定価格"
   }
 }

@@ -35,6 +35,7 @@ type Pricing struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
+	RequestUnit            string                  `json:"request_unit,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -404,6 +405,14 @@ func updatePricing() {
 			if expr, ok := billing_setting.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
+			}
+		}
+		if billingMode := billing_setting.GetBillingMode(model); billingMode == billing_setting.BillingModePerRequest {
+			pricing.RequestUnit = billing_setting.GetRequestUnit(model)
+		} else if unit := billing_setting.GetRequestUnit(model); unit != billing_setting.DefaultRequestUnit {
+			// Legacy per-request models may only store request_unit without explicit billing_mode.
+			if findPrice {
+				pricing.RequestUnit = unit
 			}
 		}
 		pricingMap = append(pricingMap, pricing)

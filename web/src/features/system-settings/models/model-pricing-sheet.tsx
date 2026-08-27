@@ -54,6 +54,13 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -69,15 +76,19 @@ import {
   buildPreviewRows,
   createInitialLaneState,
   createModelPricingSchema,
+  formatRequestUnitLabel,
   hasValue,
   laneConfigs,
   numericDraftRegex,
   ratioFieldByLane,
+  REQUEST_UNIT_OPTIONS,
+  resolvePricingModeFromData,
   toNumberOrNull,
   type LaneKey,
   type ModelPricingFormValues,
   type ModelRatioData,
   type PricingMode,
+  type RequestUnit,
 } from './model-pricing-core'
 import { PriceInput, PriceLane } from './model-pricing-inputs'
 import { formatPricingNumber } from './pricing-format'
@@ -155,6 +166,7 @@ export const ModelPricingEditorPanel = forwardRef<
   })
   const [billingExpr, setBillingExpr] = useState('')
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
+  const [requestUnit, setRequestUnit] = useState<RequestUnit>('request')
   const [editorReloadToken, setEditorReloadToken] = useState(0)
   const isEditMode = !!editData
 
@@ -188,15 +200,10 @@ export const ModelPricingEditorPanel = forwardRef<
         audioRatio: editData.audioRatio || '',
         audioCompletionRatio: editData.audioCompletionRatio || '',
       })
-      setPricingMode(
-        editData.billingMode === 'tiered_expr'
-          ? 'tiered_expr'
-          : editData.price
-            ? 'per-request'
-            : 'per-token'
-      )
+      setPricingMode(resolvePricingModeFromData(editData))
       setBillingExpr(editData.billingExpr || '')
       setRequestRuleExpr(editData.requestRuleExpr || '')
+      setRequestUnit(editData.requestUnit || 'request')
     } else {
       form.reset({
         name: '',
@@ -212,6 +219,7 @@ export const ModelPricingEditorPanel = forwardRef<
       setPricingMode('per-token')
       setBillingExpr('')
       setRequestRuleExpr('')
+      setRequestUnit('request')
     }
 
     setPromptPrice(nextLaneState.promptPrice)
@@ -348,6 +356,7 @@ export const ModelPricingEditorPanel = forwardRef<
         pricingMode,
         billingExpr,
         requestRuleExpr,
+        requestUnit,
         promptPrice,
         lanePrices,
         laneEnabled,
@@ -360,6 +369,7 @@ export const ModelPricingEditorPanel = forwardRef<
       pricingMode,
       promptPrice,
       requestRuleExpr,
+      requestUnit,
       t,
       watchedValues,
     ]
@@ -456,11 +466,13 @@ export const ModelPricingEditorPanel = forwardRef<
       if (pricingMode === 'tiered_expr') {
         data.billingExpr = billingExpr
         data.requestRuleExpr = requestRuleExpr
+      } else if (pricingMode === 'per-request') {
+        data.requestUnit = requestUnit
       }
 
       return data
     },
-    [billingExpr, pricingMode, requestRuleExpr]
+    [billingExpr, pricingMode, requestRuleExpr, requestUnit]
   )
 
   useImperativeHandle(
@@ -622,13 +634,14 @@ export const ModelPricingEditorPanel = forwardRef<
                                     }}
                                   />
                                   <InputGroupAddon align='inline-end'>
-                                    {t('per request')}
+                                    {t('per')}{' '}
+                                    {formatRequestUnitLabel(requestUnit, t)}
                                   </InputGroupAddon>
                                 </InputGroup>
                               </FormControl>
                               <FieldDescription>
                                 {t(
-                                  'Cost in USD per request, regardless of tokens used.'
+                                  'Cost in USD per billing unit, regardless of tokens used.'
                                 )}
                               </FieldDescription>
                               <FormMessage />
@@ -636,6 +649,32 @@ export const ModelPricingEditorPanel = forwardRef<
                           </FormItem>
                         )}
                       />
+                      <Field>
+                        <FieldLabel>{t('Billing unit')}</FieldLabel>
+                        <Select
+                          value={requestUnit}
+                          onValueChange={(value) =>
+                            setRequestUnit(value as RequestUnit)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('Select unit')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {REQUEST_UNIT_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {t(option.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                          {t('Choose the unit shown for this fixed price.')}
+                        </FieldDescription>
+                      </Field>
                     </FieldGroup>
                   </TabsContent>
 

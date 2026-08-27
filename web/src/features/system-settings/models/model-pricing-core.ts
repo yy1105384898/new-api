@@ -41,6 +41,37 @@ export type ModelPricingFormValues = z.infer<
 
 export type PricingMode = 'per-token' | 'per-request' | 'tiered_expr'
 
+export type RequestUnit = 'request' | 'call' | 'image' | 'task' | 'generation'
+
+export const REQUEST_UNIT_OPTIONS: Array<{
+  value: RequestUnit
+  labelKey: string
+}> = [
+  { value: 'request', labelKey: 'billingUnit.request' },
+  { value: 'call', labelKey: 'billingUnit.call' },
+  { value: 'image', labelKey: 'billingUnit.image' },
+  { value: 'task', labelKey: 'billingUnit.task' },
+  { value: 'generation', labelKey: 'billingUnit.generation' },
+]
+
+export function formatRequestUnitLabel(
+  unit: string | undefined,
+  t: (key: string) => string
+): string {
+  const option = REQUEST_UNIT_OPTIONS.find(
+    (item) => item.value === (unit?.trim() || 'request')
+  )
+  return t(option?.labelKey ?? 'billingUnit.request')
+}
+
+export function resolvePricingModeFromData(
+  data?: Pick<ModelRatioData, 'billingMode' | 'price'> | null
+): PricingMode {
+  if (!data) return 'per-token'
+  if (data.billingMode === 'tiered_expr') return 'tiered_expr'
+  return data.price ? 'per-request' : 'per-token'
+}
+
 export type LaneKey =
   | 'completion'
   | 'cache'
@@ -62,6 +93,7 @@ export type ModelRatioData = {
   billingMode?: PricingMode
   billingExpr?: string
   requestRuleExpr?: string
+  requestUnit?: RequestUnit
 }
 
 export type PreviewRow = {
@@ -212,6 +244,7 @@ export function buildPreviewRows(
   mode: PricingMode,
   billingExpr: string,
   requestRuleExpr: string,
+  requestUnit: RequestUnit,
   promptPrice: string,
   lanePrices: Record<LaneKey, string>,
   laneEnabled: Record<LaneKey, boolean>,
@@ -236,6 +269,11 @@ export function buildPreviewRows(
         key: 'price',
         label: 'ModelPrice',
         value: values.price || t('Empty'),
+      },
+      {
+        key: 'unit',
+        label: t('Billing unit'),
+        value: formatRequestUnitLabel(requestUnit, t),
       },
     ]
   }

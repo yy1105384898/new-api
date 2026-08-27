@@ -2,6 +2,7 @@ package billing_setting
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/setting/config"
@@ -10,21 +11,26 @@ import (
 
 const (
 	BillingModeRatio      = "ratio"
+	BillingModePerRequest = "per_request"
 	BillingModeTieredExpr = "tiered_expr"
 	BillingModeField      = "billing_mode"
 	BillingExprField      = "billing_expr"
+	RequestUnitField      = "request_unit"
+	DefaultRequestUnit    = "request"
 )
 
 // BillingSetting is managed by config.GlobalConfig.Register.
-// DB keys: billing_setting.billing_mode, billing_setting.billing_expr
+// DB keys: billing_setting.billing_mode, billing_setting.billing_expr, billing_setting.request_unit
 type BillingSetting struct {
 	BillingMode map[string]string `json:"billing_mode"`
 	BillingExpr map[string]string `json:"billing_expr"`
+	RequestUnit map[string]string `json:"request_unit"`
 }
 
 var billingSetting = BillingSetting{
 	BillingMode: make(map[string]string),
 	BillingExpr: make(map[string]string),
+	RequestUnit: make(map[string]string),
 }
 
 func init() {
@@ -55,13 +61,27 @@ func GetBillingExprCopy() map[string]string {
 	return lo.Assign(billingSetting.BillingExpr)
 }
 
+func GetRequestUnit(model string) string {
+	if unit, ok := billingSetting.RequestUnit[model]; ok && strings.TrimSpace(unit) != "" {
+		return unit
+	}
+	return DefaultRequestUnit
+}
+
+func GetRequestUnitCopy() map[string]string {
+	return lo.Assign(billingSetting.RequestUnit)
+}
+
 func GetPricingSyncData(base map[string]any) map[string]any {
-	extra := make(map[string]any, 2)
+	extra := make(map[string]any, 3)
 	if modes := GetBillingModeCopy(); len(modes) > 0 {
 		extra[BillingModeField] = modes
 	}
 	if exprs := GetBillingExprCopy(); len(exprs) > 0 {
 		extra[BillingExprField] = exprs
+	}
+	if units := GetRequestUnitCopy(); len(units) > 0 {
+		extra[RequestUnitField] = units
 	}
 	return lo.Assign(base, extra)
 }
