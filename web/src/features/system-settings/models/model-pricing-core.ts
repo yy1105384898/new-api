@@ -39,7 +39,11 @@ export type ModelPricingFormValues = z.infer<
   ReturnType<typeof createModelPricingSchema>
 >
 
-export type PricingMode = 'per-token' | 'per-request' | 'tiered_expr'
+export type PricingMode =
+  | 'per-token'
+  | 'per-request'
+  | 'per-second'
+  | 'tiered_expr'
 
 export type RequestUnit = 'request' | 'call' | 'image' | 'task' | 'generation'
 
@@ -58,17 +62,33 @@ export function formatRequestUnitLabel(
   unit: string | undefined,
   t: (key: string) => string
 ): string {
-  const option = REQUEST_UNIT_OPTIONS.find(
-    (item) => item.value === (unit?.trim() || 'request')
-  )
+  const normalized = (unit?.trim() || 'request') as RequestUnit
+  const option = REQUEST_UNIT_OPTIONS.find((item) => item.value === normalized)
   return t(option?.labelKey ?? 'billingUnit.request')
 }
 
+export function toBackendBillingMode(mode: PricingMode): string {
+  if (mode === 'tiered_expr') return 'tiered_expr'
+  if (mode === 'per-second') return 'per_second'
+  if (mode === 'per-request') return 'per_request'
+  return 'ratio'
+}
+
+export function fromBackendBillingMode(mode?: string): PricingMode | undefined {
+  if (mode === 'tiered_expr') return 'tiered_expr'
+  if (mode === 'per_second') return 'per-second'
+  if (mode === 'per_request') return 'per-request'
+  return undefined
+}
+
 export function resolvePricingModeFromData(
-  data?: Pick<ModelRatioData, 'billingMode' | 'price'> | null
+  data?: { billingMode?: string; price?: string } | null
 ): PricingMode {
   if (!data) return 'per-token'
   if (data.billingMode === 'tiered_expr') return 'tiered_expr'
+  if (data.billingMode === 'per-second') return 'per-second'
+  const mapped = fromBackendBillingMode(data.billingMode)
+  if (mapped) return mapped
   return data.price ? 'per-request' : 'per-token'
 }
 
@@ -182,6 +202,16 @@ export function hasValue(value: unknown): boolean {
   )
 }
 
+/** Preserve numeric zero when converting form/API values to strings. */
+export function formatOptionalNumericField(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : ''
+  }
+  if (typeof value === 'string') return value
+  return ''
+}
+
 export function toNumberOrNull(value: unknown): number | null {
   if (!hasValue(value) && value !== 0) return null
   const num = Number(value)
@@ -274,6 +304,26 @@ export function buildPreviewRows(
         key: 'unit',
         label: t('Billing unit'),
         value: formatRequestUnitLabel(requestUnit, t),
+      },
+    ]
+  }
+
+  if (mode === 'per-second') {
+    return [
+      {
+        key: 'price',
+        label: t('Unit price'),
+        value: values.price ? `$${values.price}` : t('Empty'),
+      },
+      {
+        key: 'unit',
+        label: t('Billing unit'),
+        value: t('billingUnit.second'),
+      },
+      {
+        key: 'formula',
+        label: t('Formula'),
+        value: t('Unit price × upstream seconds'),
       },
     ]
   }
