@@ -78,6 +78,11 @@ import {
 } from '@/features/system-settings/hooks/use-system-options'
 import { useUpdateOption } from '@/features/system-settings/hooks/use-update-option'
 import { normalizeJsonString } from '@/features/system-settings/models/utils'
+import {
+  hasValue,
+  REQUEST_UNIT_OPTIONS,
+  type RequestUnit,
+} from '@/features/system-settings/models/model-pricing-core'
 import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 
@@ -109,7 +114,7 @@ const extendedModelFormSchema = z.object({
 
 type ExtendedModelFormValues = z.infer<typeof extendedModelFormSchema>
 
-type PricingMode = 'per-token' | 'per-request'
+type PricingMode = 'per-token' | 'per-request' | 'per-second'
 type PricingSubMode = 'ratio' | 'price'
 
 type PricingFields = Pick<
@@ -127,6 +132,7 @@ type PricingFields = Pick<
 type PricingConfig = {
   mode: PricingMode
   fields: PricingFields
+  requestUnit: RequestUnit
   promptPrice: string
   completionPrice: string
   advancedOpen: boolean
@@ -145,6 +151,7 @@ const EMPTY_PRICING_FIELDS: PricingFields = {
 const EMPTY_PRICING_CONFIG: PricingConfig = {
   mode: 'per-token',
   fields: EMPTY_PRICING_FIELDS,
+  requestUnit: 'request',
   promptPrice: '',
   completionPrice: '',
   advancedOpen: false,
@@ -155,6 +162,29 @@ function lookupModelRatio(
   modelName: string
 ): number | undefined {
   return safeJsonParse<Record<string, number>>(rawMap, {
+    fallback: {},
+    silent: true,
+  })[modelName]
+}
+
+function lookupModelRequestUnit(
+  rawMap: string,
+  modelName: string
+): RequestUnit {
+  const value = safeJsonParse<Record<string, string>>(rawMap, {
+    fallback: {},
+    silent: true,
+  })[modelName]
+  return REQUEST_UNIT_OPTIONS.some((option) => option.value === value)
+    ? (value as RequestUnit)
+    : 'request'
+}
+
+function lookupModelBillingMode(
+  rawMap: string,
+  modelName: string
+): string | undefined {
+  return safeJsonParse<Record<string, string>>(rawMap, {
     fallback: {},
     silent: true,
   })[modelName]
@@ -180,6 +210,14 @@ function readPricingConfig(
     settings.AudioCompletionRatio,
     modelName
   )
+  const requestUnit = lookupModelRequestUnit(
+    settings['billing_setting.request_unit'],
+    modelName
+  )
+  const billingMode = lookupModelBillingMode(
+    settings['billing_setting.billing_mode'],
+    modelName
+  )
 
   // A fixed per-request price wins outright at billing time (see
   // GetModelRatioOrPrice), so a name that has one is shown, and saved back, as
@@ -187,7 +225,8 @@ function readPricingConfig(
   if (price !== undefined && price !== null) {
     return {
       ...EMPTY_PRICING_CONFIG,
-      mode: 'per-request',
+      mode: billingMode === 'per_second' ? 'per-second' : 'per-request',
+      requestUnit: billingMode === 'per_second' ? 'request' : requestUnit,
       fields: { ...EMPTY_PRICING_FIELDS, price: price.toString() },
     }
   }
@@ -204,6 +243,7 @@ function readPricingConfig(
 
   return {
     mode: 'per-token',
+    requestUnit,
     fields: {
       price: '',
       ratio: ratio?.toString() || '',
@@ -247,6 +287,7 @@ export function ModelMutateDrawer({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [promptPrice, setPromptPrice] = useState('')
   const [completionPrice, setCompletionPrice] = useState('')
+  const [requestUnit, setRequestUnit] = useState<RequestUnit>('request')
   const [oldModelName, setOldModelName] = useState<string>('')
   // Model name whose pricing was read into the form when the drawer opened.
   // Submit may only rewrite pricing for this name, or for a name the user
@@ -425,6 +466,7 @@ export function ModelMutateDrawer({
       )
       setLoadedPricingName(model.model_name)
       setPricingMode(pricing.mode)
+      setRequestUnit(pricing.requestUnit)
       setPromptPrice(pricing.promptPrice)
       setCompletionPrice(pricing.completionPrice)
       setAdvancedOpen(pricing.advancedOpen)
@@ -451,6 +493,7 @@ export function ModelMutateDrawer({
       setLoadedPricingName(modelName)
       setPricingSubMode('ratio')
       setPricingMode(pricing.mode)
+      setRequestUnit(pricing.requestUnit)
       setPromptPrice(pricing.promptPrice)
       setCompletionPrice(pricing.completionPrice)
       setAdvancedOpen(pricing.advancedOpen)
@@ -502,16 +545,17 @@ export function ModelMutateDrawer({
           // Handle ratio configuration updates in system settings
           const finalModelName = values.model_name
           const hasRatioConfig =
-            (pricingMode === 'per-request' &&
-              values.price &&
-              values.price !== '') ||
+            ((pricingMode === 'per-request' || pricingMode === 'per-second') &&
+              hasValue(values.price)) ||
             (pricingMode === 'per-token' &&
-              (values.ratio ||
-                values.cacheRatio ||
-                values.completionRatio ||
-                values.imageRatio ||
-                values.audioRatio ||
-                values.audioCompletionRatio))
+              [
+                values.ratio,
+                values.cacheRatio,
+                values.completionRatio,
+                values.imageRatio,
+                values.audioRatio,
+                values.audioCompletionRatio,
+              ].some(hasValue))
 
           // Always process system settings updates if we have modelSettings
           // This ensures we can remove stale entries even when clearing all pricing fields
@@ -545,6 +589,14 @@ export function ModelMutateDrawer({
               modelSettings.AudioCompletionRatio,
               { fallback: {}, silent: true }
             )
+            const billingModeMap = safeJsonParse<Record<string, string>>(
+              modelSettings['billing_setting.billing_mode'],
+              { fallback: {}, silent: true }
+            )
+            const requestUnitMap = safeJsonParse<Record<string, string>>(
+              modelSettings['billing_setting.request_unit'],
+              { fallback: {}, silent: true }
+            )
 
             // Remove old model name entries if model name changed (always, even if no new config)
             if (isEditing && oldModelName && oldModelName !== finalModelName) {
@@ -555,6 +607,8 @@ export function ModelMutateDrawer({
               delete imageMap[oldModelName]
               delete audioMap[oldModelName]
               delete audioCompletionMap[oldModelName]
+              delete billingModeMap[oldModelName]
+              delete requestUnitMap[oldModelName]
             }
 
             // Rebuild this model name's entries from the form, but only when
@@ -574,16 +628,22 @@ export function ModelMutateDrawer({
               delete imageMap[finalModelName]
               delete audioMap[finalModelName]
               delete audioCompletionMap[finalModelName]
+              delete billingModeMap[finalModelName]
+              delete requestUnitMap[finalModelName]
             }
 
             // Only add new entries if user provided new configuration
             if (hasRatioConfig) {
               if (
-                pricingMode === 'per-request' &&
-                values.price &&
-                values.price !== ''
+                (pricingMode === 'per-request' || pricingMode === 'per-second') &&
+                hasValue(values.price)
               ) {
-                priceMap[finalModelName] = Number.parseFloat(values.price)
+                priceMap[finalModelName] = Number.parseFloat(String(values.price))
+                billingModeMap[finalModelName] =
+                  pricingMode === 'per-second' ? 'per_second' : 'per_request'
+                if (pricingMode === 'per-request' && requestUnit !== 'request') {
+                  requestUnitMap[finalModelName] = requestUnit
+                }
               } else if (pricingMode === 'per-token') {
                 if (values.ratio && values.ratio !== '') {
                   ratioMap[finalModelName] = Number.parseFloat(values.ratio)
@@ -683,6 +743,34 @@ export function ModelMutateDrawer({
               })
             }
 
+            const newBillingMode = normalizeJsonString(
+              JSON.stringify(billingModeMap)
+            )
+            if (
+              newBillingMode !==
+              normalizeJsonString(modelSettings['billing_setting.billing_mode'])
+            ) {
+              updates.push({
+                key: 'billing_setting.billing_mode',
+                value: newBillingMode,
+              })
+            }
+
+            const newRequestUnit = normalizeJsonString(
+              JSON.stringify(requestUnitMap)
+            )
+            if (
+              newRequestUnit !==
+              normalizeJsonString(
+                modelSettings['billing_setting.request_unit']
+              )
+            ) {
+              updates.push({
+                key: 'billing_setting.request_unit',
+                value: newRequestUnit,
+              })
+            }
+
             // Apply all updates (including deletions when clearing fields)
             for (const update of updates) {
               await updateOption.mutateAsync(update)
@@ -712,6 +800,7 @@ export function ModelMutateDrawer({
       queryClient,
       onOpenChange,
       pricingMode,
+      requestUnit,
       oldModelName,
       loadedPricingName,
       modelSettings,
@@ -1007,16 +1096,83 @@ export function ModelMutateDrawer({
                       {t('Per-request (fixed price)')}
                     </Label>
                   </div>
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='per-second' id='per-second' />
+                    <Label htmlFor='per-second' className='font-normal'>
+                      {t('Per-second (unit price)')}
+                    </Label>
+                  </div>
                 </RadioGroup>
               </div>
 
-              {pricingMode === 'per-request' ? (
+              {pricingMode === 'per-request' && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name='price'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Fixed price (USD)')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='text'
+                            placeholder='0.01'
+                            {...field}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              if (validateNumber(value)) {
+                                field.onChange(value)
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Cost in USD per billing unit, regardless of tokens used.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className='space-y-2'>
+                    <Label>{t('Billing unit')}</Label>
+                    <Select
+                      value={requestUnit}
+                      onValueChange={(value) =>
+                        setRequestUnit(value as RequestUnit)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('Select unit')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {REQUEST_UNIT_OPTIONS.map((option) => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                            >
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <p className='text-muted-foreground text-sm'>
+                      {t('Choose the unit shown for this fixed price.')}
+                    </p>
+                  </div>
+                </>
+              )}
+              {pricingMode === 'per-second' && (
                 <FormField
                   control={form.control}
                   name='price'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Fixed price (USD)')}</FormLabel>
+                      <FormLabel>{t('Unit price (USD)')}</FormLabel>
                       <FormControl>
                         <Input
                           type='text'
@@ -1032,14 +1188,15 @@ export function ModelMutateDrawer({
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Cost in USD per request, regardless of tokens used.'
+                          'Total charge = unit price × upstream seconds (for example usage.seconds).'
                         )}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              ) : (
+              )}
+              {pricingMode !== 'per-request' && pricingMode !== 'per-second' && (
                 <>
                   <div className='space-y-4'>
                     <Label>{t('Input mode')}</Label>
