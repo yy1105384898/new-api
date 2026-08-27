@@ -3836,6 +3836,12 @@
     "Replica count": "Replica count",
     "Replicate": "Replicate",
     "Report an issue": "Report an issue",
+    "billingUnit.request": "request",
+    "billingUnit.call": "call",
+    "billingUnit.image": "image",
+    "billingUnit.task": "task",
+    "billingUnit.generation": "generation",
+    "billingUnit.second": "second",
     "request": "request",
     "Request": "Request",
     "Request Body Disk Cache": "Request Body Disk Cache",
@@ -5316,6 +5322,11 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Billing unit": "Billing unit",
+    "Select unit": "Select unit",
+    "Choose the unit shown for this fixed price.": "Choose the unit shown for this fixed price.",
+    "Cost in USD per billing unit, regardless of tokens used.": "Cost in USD per billing unit, regardless of tokens used.",
+    "Fixed price per {{unit}}": "Fixed price per {{unit}}"
   }
 }

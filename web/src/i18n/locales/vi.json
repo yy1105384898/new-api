@@ -3836,6 +3836,12 @@
     "Replica count": "Số bản sao",
     "Replicate": "Sao chép",
     "Report an issue": "Báo cáo sự cố",
+    "billingUnit.request": "yêu cầu",
+    "billingUnit.call": "lần gọi",
+    "billingUnit.image": "hình ảnh",
+    "billingUnit.task": "tác vụ",
+    "billingUnit.generation": "lần tạo",
+    "billingUnit.second": "giây",
     "request": "yêu cầu",
     "Request": "Yêu cầu",
     "Request Body Disk Cache": "Bộ nhớ đệm đĩa nội dung yêu cầu",
@@ -5316,6 +5322,11 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Billing unit": "Đơn vị tính phí",
+    "Select unit": "Chọn đơn vị",
+    "Choose the unit shown for this fixed price.": "Chọn đơn vị hiển thị cho giá cố định này.",
+    "Cost in USD per billing unit, regardless of tokens used.": "Chi phí USD cho mỗi đơn vị tính phí, bất kể số token được sử dụng.",
+    "Fixed price per {{unit}}": "Giá cố định cho mỗi {{unit}}"
   }
 }
