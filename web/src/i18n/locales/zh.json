@@ -3836,6 +3836,12 @@
     "Replica count": "副本数",
     "Replicate": "Replicate",
     "Report an issue": "反馈问题",
+    "billingUnit.request": "次",
+    "billingUnit.call": "次调用",
+    "billingUnit.image": "张",
+    "billingUnit.task": "任务",
+    "billingUnit.generation": "条",
+    "billingUnit.second": "秒",
     "request": "请求",
     "Request": "请求",
     "Request Body Disk Cache": "请求体磁盘缓存",
@@ -5316,6 +5322,11 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Billing unit": "计费单位",
+    "Select unit": "选择单位",
+    "Choose the unit shown for this fixed price.": "选择该固定价格显示的单位。",
+    "Cost in USD per billing unit, regardless of tokens used.": "无论使用多少 Token，均按计费单位收取美元费用。",
+    "Fixed price per {{unit}}": "每{{unit}}固定价格"
   }
 }

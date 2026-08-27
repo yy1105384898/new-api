@@ -232,11 +232,18 @@ export function formatFixedPrice(
     usdExchangeRate
   )
 
-  return formatCurrencyFromUSD(priceInUSD, {
+  const formatted = formatCurrencyFromUSD(priceInUSD, {
     digitsLarge: 4,
     digitsSmall: 4,
     abbreviate: false,
   })
+
+  const unit = model.request_unit?.trim() || 'request'
+  if (model.billing_mode === 'per_request' || model.request_unit) {
+    return `${formatted}/${unit}`
+  }
+
+  return formatted
 }
 
 /**

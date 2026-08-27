@@ -3836,6 +3836,12 @@
     "Replica count": "Количество реплик",
     "Replicate": "Replicate",
     "Report an issue": "Сообщить о проблеме",
+    "billingUnit.request": "запрос",
+    "billingUnit.call": "вызов",
+    "billingUnit.image": "изображение",
+    "billingUnit.task": "задача",
+    "billingUnit.generation": "генерация",
+    "billingUnit.second": "секунда",
     "request": "запрос",
     "Request": "Запрос",
     "Request Body Disk Cache": "Дисковый кэш тела запроса",
@@ -5316,6 +5322,11 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Billing unit": "Единица тарификации",
+    "Select unit": "Выберите единицу",
+    "Choose the unit shown for this fixed price.": "Выберите единицу, отображаемую для этой фиксированной цены.",
+    "Cost in USD per billing unit, regardless of tokens used.": "Стоимость в долларах США за единицу тарификации независимо от количества токенов.",
+    "Fixed price per {{unit}}": "Фиксированная цена за {{unit}}"
   }
 }

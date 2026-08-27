@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-expr'
 
 import { safeJsonParse } from '../utils/json-parser'
+import { formatRequestUnitLabel, type RequestUnit } from './model-pricing-core'
 import { formatPricingNumber } from './pricing-format'
 
 export type ModelPricingSnapshotInput = {
@@ -32,6 +33,7 @@ export type ModelPricingSnapshotInput = {
   audioCompletionRatio: string
   billingMode: string
   billingExpr: string
+  requestUnit: string
 }
 
 export type ModelPricingSnapshot = {
@@ -47,6 +49,7 @@ export type ModelPricingSnapshot = {
   billingMode?: string
   billingExpr?: string
   requestRuleExpr?: string
+  requestUnit?: RequestUnit
   hasConflict: boolean
 }
 
@@ -113,7 +116,8 @@ export const getPriceSummary = (
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
+    const unit = formatRequestUnitLabel(row.requestUnit, t)
+    return row.price ? `$${row.price} / ${unit}` : t('Unset price')
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -143,7 +147,10 @@ export const getPriceDetail = (
       : t('Expression based')
   }
   if (row.billingMode === 'per-request') {
-    return t('Fixed request price')
+    return t('Fixed price per {{unit}}').replace(
+      '{{unit}}',
+      formatRequestUnitLabel(row.requestUnit, t)
+    )
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -174,6 +181,7 @@ export const buildModelSnapshots = ({
   audioCompletionRatio,
   billingMode,
   billingExpr,
+  requestUnit,
 }: ModelPricingSnapshotInput): ModelPricingSnapshot[] => {
   const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
     fallback: {},
@@ -215,6 +223,10 @@ export const buildModelSnapshots = ({
     fallback: {},
     context: 'billing expression',
   })
+  const requestUnitMap = safeJsonParse<Record<string, string>>(requestUnit, {
+    fallback: {},
+    context: 'request unit',
+  })
 
   const modelNames = new Set([
     ...Object.keys(priceMap),
@@ -227,9 +239,10 @@ export const buildModelSnapshots = ({
     ...Object.keys(audioCompletionMap),
     ...Object.keys(billingModeMap),
     ...Object.keys(billingExprMap),
+    ...Object.keys(requestUnitMap),
   ])
 
-  return Array.from(modelNames).map((name) => {
+  return [...modelNames].map((name) => {
     const price = priceMap[name]?.toString() || ''
     const ratio = ratioMap[name]?.toString() || ''
     const cache = cacheMap[name]?.toString() || ''
@@ -257,6 +270,7 @@ export const buildModelSnapshots = ({
         imageRatio: image,
         audioRatio: audio,
         audioCompletionRatio: audioCompletion,
+        requestUnit: (requestUnitMap[name] as RequestUnit) || 'request',
         hasConflict: false,
       }
     }
@@ -272,6 +286,10 @@ export const buildModelSnapshots = ({
       audioRatio: audio,
       audioCompletionRatio: audioCompletion,
       billingMode: price !== '' ? 'per-request' : 'per-token',
+      requestUnit:
+        price !== ''
+          ? (requestUnitMap[name] as RequestUnit) || 'request'
+          : undefined,
       hasConflict:
         price !== '' &&
         (ratio !== '' ||
@@ -299,5 +317,6 @@ export const getSnapshotSignature = (snapshot?: ModelPricingSnapshot) => {
     billingMode: snapshot.billingMode || 'per-token',
     billingExpr: snapshot.billingExpr || '',
     requestRuleExpr: snapshot.requestRuleExpr || '',
+    requestUnit: snapshot.requestUnit || 'request',
   })
 }
