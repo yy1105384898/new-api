@@ -3389,7 +3389,7 @@
     "Per-group performance": "各分组性能",
     "Per-request": "按次",
     "Per-request (fixed price)": "按请求计费（固定价格）",
-    "Per-second": "按秒",
+    "Per-second": "按秒计费",
     "Per-second (unit price)": "按秒计费（单价）",
     "Per-token": "按 Token",
     "Per-token (ratio based)": "按令牌计费（基于比例）",
