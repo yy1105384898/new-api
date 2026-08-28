@@ -35,6 +35,29 @@ export function getRequestUnitLabelKey(unit?: string): string {
   return REQUEST_UNIT_LABEL_KEYS[normalized] ?? REQUEST_UNIT_LABEL_KEYS.request
 }
 
+function appendRequestUnitSuffix(
+  formatted: string,
+  model: PricingModel,
+  translate?: (key: string) => string
+): string {
+  if (model.billing_mode === 'per_second') {
+    const secondLabel = translate ? translate('billingUnit.second') : 's'
+    return `${formatted}/${secondLabel}`
+  }
+
+  const unit = model.request_unit?.trim() || 'request'
+  const showUnit =
+    model.billing_mode === 'per_request' ||
+    Boolean(model.request_unit) ||
+    model.quota_type === QUOTA_TYPE_VALUES.REQUEST
+  if (showUnit) {
+    const unitLabel = translate ? translate(getRequestUnitLabelKey(unit)) : unit
+    return `${formatted}/${unitLabel}`
+  }
+
+  return formatted
+}
+
 // ----------------------------------------------------------------------------
 // Price Calculation Utilities
 // ----------------------------------------------------------------------------
@@ -229,7 +252,8 @@ export function formatFixedPrice(
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
-  groupRatio: Record<string, number>
+  groupRatio: Record<string, number>,
+  translate?: (key: string) => string
 ): string {
   if (model.quota_type !== QUOTA_TYPE_VALUES.REQUEST) {
     return '-'
@@ -251,12 +275,7 @@ export function formatFixedPrice(
     abbreviate: false,
   })
 
-  const unit = model.request_unit?.trim() || 'request'
-  if (model.billing_mode === 'per_request' || model.request_unit) {
-    return `${formatted}/${unit}`
-  }
-
-  return formatted
+  return appendRequestUnitSuffix(formatted, model, translate)
 }
 
 /**
@@ -267,7 +286,8 @@ export function formatRequestPrice(
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
-  selectedGroup?: string
+  selectedGroup?: string,
+  translate?: (key: string) => string
 ): string {
   if (model.quota_type !== QUOTA_TYPE_VALUES.REQUEST) {
     return '-'
@@ -284,9 +304,11 @@ export function formatRequestPrice(
     usdExchangeRate
   )
 
-  return formatCurrencyFromUSD(priceInUSD, {
+  const formatted = formatCurrencyFromUSD(priceInUSD, {
     digitsLarge: 4,
     digitsSmall: 4,
     abbreviate: false,
   })
+
+  return appendRequestUnitSuffix(formatted, model, translate)
 }
