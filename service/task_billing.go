@@ -10,10 +10,42 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
+
+// IsPerRequestTaskBilling reports models billed once per generation regardless of duration.
+func IsPerRequestTaskBilling(modelName string) bool {
+	if common.StringsContains(constant.TaskPricePatches, modelName) {
+		return true
+	}
+	if billing_setting.GetBillingMode(modelName) == billing_setting.BillingModePerRequest {
+		return true
+	}
+	return false
+}
+
+// ShouldApplyTaskOtherRatio decides whether a task billing ratio affects quota.
+func ShouldApplyTaskOtherRatio(modelName, ratioKey string) bool {
+	return ratioKey != "seconds" || !IsPerRequestTaskBilling(modelName)
+}
+
+// ShouldTaskPerCallBilling reports whether a task should keep its fixed charge
+// and skip terminal settlement by actual duration or token usage.
+func ShouldTaskPerCallBilling(modelName string, usePrice bool, otherRatios map[string]float64) bool {
+	if IsPerRequestTaskBilling(modelName) {
+		return true
+	}
+	if !usePrice {
+		return false
+	}
+	if seconds, ok := otherRatios["seconds"]; ok && seconds > 0 {
+		return false
+	}
+	return true
+}
 
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。

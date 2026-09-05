@@ -196,7 +196,12 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 6. 将 OtherRatios 应用到基础额度（饱和转换，防止溢出成负数）
 	if !common.StringsContains(constant.TaskPricePatches, modelName) {
-		quotaWithRatios := info.PriceData.ApplyOtherRatiosToFloat(float64(info.PriceData.Quota))
+		quotaWithRatios := float64(info.PriceData.Quota)
+		for key, ratio := range info.PriceData.OtherRatios() {
+			if ratio != 1.0 && service.ShouldApplyTaskOtherRatio(modelName, key) {
+				quotaWithRatios *= ratio
+			}
+		}
 		quota, clamp := common.QuotaFromFloatChecked(quotaWithRatios)
 		info.PriceData.Quota = quota
 		noteTaskQuotaClamp(info, clamp)
@@ -263,13 +268,23 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 // 公式: baseQuota × ∏(ratio) — 其中 baseQuota 是不含 OtherRatios 的基础额度。
 func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) (int, bool) {
 	// 从 PriceData 获取不含 OtherRatios 的基础价格
-	baseQuota := info.PriceData.RemoveOtherRatiosFromFloat(float64(info.PriceData.Quota))
+	baseQuota := float64(info.PriceData.Quota)
+	for key, ratio := range info.PriceData.OtherRatios() {
+		if ratio != 1.0 && ratio > 0 && service.ShouldApplyTaskOtherRatio(info.OriginModelName, key) {
+			baseQuota /= ratio
+		}
+	}
 	priceData := info.PriceData
 	if !priceData.ReplaceOtherRatios(ratios) {
 		return 0, false
 	}
 	// 应用新的 ratios
-	result := priceData.ApplyOtherRatiosToFloat(baseQuota)
+	result := baseQuota
+	for key, ratio := range priceData.OtherRatios() {
+		if ratio != 1.0 && service.ShouldApplyTaskOtherRatio(info.OriginModelName, key) {
+			result *= ratio
+		}
+	}
 	quota, clamp := common.QuotaFromFloatChecked(result)
 	noteTaskQuotaClamp(info, clamp)
 	return quota, true
