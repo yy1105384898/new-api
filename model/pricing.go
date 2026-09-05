@@ -406,7 +406,8 @@ func updatePricing() {
 			audioCompletionRatio := ratio_setting.GetAudioCompletionRatio(model)
 			pricing.AudioCompletionRatio = &audioCompletionRatio
 		}
-		if billingMode := billing_setting.GetBillingMode(model); billingMode == billing_setting.BillingModeTieredExpr {
+		billingMode := billing_setting.GetBillingMode(model)
+		if billingMode == billing_setting.BillingModeTieredExpr {
 			if expr, ok := billing_setting.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
@@ -421,11 +422,14 @@ func updatePricing() {
 			if findPrice {
 				pricing.RequestUnit = unit
 			}
-		} else if target, resolved := ResolveTaskModelAlias(pluginGeneration, model); resolved && target.Declared != "" {
-			if tailMode := billing_setting.GetBillingMode(target.Declared); tailMode == "tiered_expr" {
-				if expr, ok := billing_setting.GetBillingExpr(target.Declared); ok && strings.TrimSpace(expr) != "" {
-					pricing.BillingMode = tailMode
-					pricing.BillingExpr = expr
+		}
+		if pricing.BillingMode == "" {
+			if target, resolved := ResolveTaskModelAlias(pluginGeneration, model); resolved && target.Declared != "" {
+				if tailMode := billing_setting.GetBillingMode(target.Declared); tailMode == "tiered_expr" {
+					if expr, ok := billing_setting.GetBillingExpr(target.Declared); ok && strings.TrimSpace(expr) != "" {
+						pricing.BillingMode = tailMode
+						pricing.BillingExpr = expr
+					}
 				}
 			}
 		}
