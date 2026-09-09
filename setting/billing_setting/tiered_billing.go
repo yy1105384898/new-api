@@ -2,6 +2,7 @@ package billing_setting
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -77,6 +78,15 @@ func GetBillingExpr(model string) (string, bool) {
 		return expr, ok
 	}
 	return "", false
+}
+
+func GetBuiltinBillingExpr(model string) (string, bool) {
+	expression, ok := builtinBillingExpr[model]
+	return expression, ok
+}
+
+func GetBuiltinBillingExprCopy() map[string]string {
+	return lo.Assign(builtinBillingExpr)
 }
 
 func GetBillingModeCopy() map[string]string {
@@ -256,9 +266,7 @@ func taskUsageSmokeVectors(schema map[string]jsplugin.UsageFieldSchema) []map[st
 		}
 		if index == len(dimensions) {
 			vector := make(map[string]any, len(current))
-			for key, value := range current {
-				vector[key] = value
-			}
+			maps.Copy(vector, current)
 			vectors = append(vectors, vector)
 			return
 		}
